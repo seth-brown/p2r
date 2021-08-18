@@ -38,11 +38,25 @@ struct TransformProps<'a> {
 }
 
 impl PinboardBookmark {
-    // add a unique tag to signify a pinboard import
-    fn tag(tags: &str, user_tags: &Option<String>) -> String {
-        match user_tags {
-            None => tags.to_string(),
-            Some(t) => [tags, t.as_ref()].join(" "),
+    // pinboard expresses tags as a space delimited str,
+    // while raindrop conforms to a comma + space delimiter
+    fn fmt_tags(tags: &str) -> String {
+        tags.replace(" ", ", ")
+    }
+
+    // concatenate existing tags and any user-provided tags
+    // into Raindrop's tag format
+    fn tag(tags: &str, maybe_usr_tags: &Option<String>) -> String {
+        let formatted_tags = Self::fmt_tags(tags);
+
+        if let Some(usr_tags) = maybe_usr_tags {
+            let formatted_usr_tags = Self::fmt_tags(usr_tags);
+            match &formatted_tags == "" {
+                true => formatted_usr_tags,
+                false => [formatted_tags, formatted_usr_tags].join(", "),
+            }
+        } else {
+            formatted_tags
         }
     }
 
@@ -191,6 +205,7 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     impl PartialEq for RaindropBookmark {
         fn eq(&self, comparer: &Self) -> bool {
@@ -232,7 +247,9 @@ mod tests {
             folder: folder.to_string(),
             title: "title".to_string(),
             description: description.to_string(),
-            tags: [tags, user_tags].join(" ").to_string(),
+            tags: [tags.replace(" ", ", "), user_tags.to_string()]
+                .join(", ")
+                .to_string(),
             created: created.to_string(),
         };
         let bm = pb_bm
